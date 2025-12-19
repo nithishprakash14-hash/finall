@@ -1,18 +1,18 @@
 import streamlit as st
 import pandas as pd
 
-# -------------------------------------------------
-# Page Config
-# -------------------------------------------------
+# =================================================
+# PAGE CONFIG
+# =================================================
 st.set_page_config(
     page_title="Social Media Analytics Pro",
     page_icon="🚀",
     layout="wide"
 )
 
-# -------------------------------------------------
-# Custom CSS (COLORS + STYLE)
-# -------------------------------------------------
+# =================================================
+# CUSTOM CSS
+# =================================================
 st.markdown("""
 <style>
 body {
@@ -22,7 +22,7 @@ body {
     background: linear-gradient(to right, #141E30, #243B55);
 }
 h1, h2, h3, h4 {
-    color: #ffffff;
+    color: white;
 }
 .metric-card {
     background: linear-gradient(135deg, #667eea, #764ba2);
@@ -44,35 +44,50 @@ h1, h2, h3, h4 {
 .metric-card.blue {
     background: linear-gradient(135deg, #396afc, #2948ff);
 }
-.dataframe {
-    background-color: white;
-}
 </style>
 """, unsafe_allow_html=True)
 
-# -------------------------------------------------
-# Load Data
-# -------------------------------------------------
+# =================================================
+# LOAD DATA
+# =================================================
 @st.cache_data
 def load_data():
-    df = pd.read_csv("social_media_engagement_enhanced(1)(1).csv")
+    df = pd.read_csv("social_media_engagement.csv")
     df["date"] = pd.to_datetime(df["date"])
+
+    # Derived columns
+    df["year"] = df["date"].dt.year
+    df["post_hour"] = df["date"].dt.hour
+    df["engagement"] = df["likes"] + df["comments"] + df["shares"]
+    df["engagement_rate"] = (df["engagement"] / df["reach"]) * 100
+    df["revenue_generated"] = df["ad_spend"] * (1 + df["roi"])
+
     return df
 
 df = load_data()
 
-# -------------------------------------------------
-# Derived Revenue
-# -------------------------------------------------
-df["revenue_generated"] = df["ad_spend"] * (1 + df["roi"])
-
-# -------------------------------------------------
-# Sidebar (Styled)
-# -------------------------------------------------
+# =================================================
+# SIDEBAR FILTERS
+# =================================================
 st.sidebar.markdown("## 🎛️ Dashboard Controls")
-platform_filter = st.sidebar.multiselect("📱 Platform", df["platform"].unique(), df["platform"].unique())
-content_filter = st.sidebar.multiselect("🖼️ Content Type", df["content_type"].unique(), df["content_type"].unique())
-year_filter = st.sidebar.multiselect("📅 Year", df["year"].unique(), df["year"].unique())
+
+platform_filter = st.sidebar.multiselect(
+    "📱 Platform",
+    df["platform"].unique(),
+    df["platform"].unique()
+)
+
+content_filter = st.sidebar.multiselect(
+    "🖼️ Content Type",
+    df["content_type"].unique(),
+    df["content_type"].unique()
+)
+
+year_filter = st.sidebar.multiselect(
+    "📅 Year",
+    df["year"].unique(),
+    df["year"].unique()
+)
 
 filtered_df = df[
     (df["platform"].isin(platform_filter)) &
@@ -80,19 +95,19 @@ filtered_df = df[
     (df["year"].isin(year_filter))
 ]
 
-# -------------------------------------------------
-# Header
-# -------------------------------------------------
+# =================================================
+# HEADER
+# =================================================
 st.markdown("""
 <h1 style='text-align:center;'>🚀 Social Media Analytics Pro Dashboard</h1>
 <p style='text-align:center;color:#dcdcdc;font-size:18px;'>
-Engagement • Content Performance • Campaign ROI • Revenue • Best Posting Time
+Engagement • Content • Campaign ROI • Revenue • Best Posting Time
 </p>
 """, unsafe_allow_html=True)
 
-# -------------------------------------------------
-# KPI CARDS (COLORFUL 🔥)
-# -------------------------------------------------
+# =================================================
+# KPI CARDS
+# =================================================
 c1, c2, c3, c4, c5 = st.columns(5)
 
 c1.markdown(f"""
@@ -111,7 +126,7 @@ c2.markdown(f"""
 
 c3.markdown(f"""
 <div class="metric-card orange">
-<h3>Ad Spend</h3>
+<h3>Total Ad Spend</h3>
 <h2>₹ {int(filtered_df["ad_spend"].sum())}</h2>
 </div>
 """, unsafe_allow_html=True)
@@ -132,9 +147,9 @@ c5.markdown(f"""
 
 st.markdown("---")
 
-# -------------------------------------------------
+# =================================================
 # TABS
-# -------------------------------------------------
+# =================================================
 tab1, tab2, tab3, tab4 = st.tabs(
     ["📱 Engagement", "🖼️ Content", "💰 Campaign ROI", "⏰ Best Time"]
 )
@@ -142,24 +157,45 @@ tab1, tab2, tab3, tab4 = st.tabs(
 # ---------------- TAB 1 ----------------
 with tab1:
     st.subheader("📱 Platform Engagement Comparison")
-    platform_eng = filtered_df.groupby("platform")["engagement_rate"].mean().reset_index()
+    platform_eng = (
+        filtered_df.groupby("platform")["engagement_rate"]
+        .mean()
+        .reset_index()
+    )
+
     st.bar_chart(platform_eng, x="platform", y="engagement_rate")
 
-    best_platform = platform_eng.loc[platform_eng["engagement_rate"].idxmax(), "platform"]
+    best_platform = platform_eng.loc[
+        platform_eng["engagement_rate"].idxmax(), "platform"
+    ]
     st.success(f"🏆 Best Platform: **{best_platform}**")
 
 # ---------------- TAB 2 ----------------
 with tab2:
     st.subheader("🖼️ Content Performance")
-    content_perf = filtered_df.groupby("content_type")[["likes","comments","shares","engagement"]].mean().reset_index()
+    content_perf = (
+        filtered_df
+        .groupby("content_type")[["likes","comments","shares","engagement"]]
+        .mean()
+        .reset_index()
+    )
+
     st.dataframe(content_perf)
     st.bar_chart(content_perf, x="content_type", y="engagement")
 
 # ---------------- TAB 3 ----------------
 with tab3:
     st.subheader("💰 Campaign ROI & Revenue")
+
     campaign_df = filtered_df[filtered_df["campaign_name"].notna()]
-    campaign_summary = campaign_df.groupby("campaign_name")[["ad_spend","revenue_generated","roi"]].mean().reset_index()
+
+    campaign_summary = (
+        campaign_df
+        .groupby("campaign_name")[["ad_spend","revenue_generated","roi"]]
+        .mean()
+        .reset_index()
+    )
+
     st.dataframe(campaign_summary)
 
     st.bar_chart(campaign_summary, x="campaign_name", y="revenue_generated")
@@ -168,18 +204,28 @@ with tab3:
 # ---------------- TAB 4 ----------------
 with tab4:
     st.subheader("⏰ Optimal Posting Time")
-    hourly = filtered_df.groupby("post_hour")["engagement"].mean().reset_index()
+
+    hourly = (
+        filtered_df
+        .groupby("post_hour")["engagement"]
+        .mean()
+        .reset_index()
+    )
+
     st.line_chart(hourly, x="post_hour", y="engagement")
 
-    best_hour = hourly.loc[hourly["engagement"].idxmax(),"post_hour"]
+    best_hour = hourly.loc[
+        hourly["engagement"].idxmax(), "post_hour"
+    ]
+
     st.success(f"🔥 Best Posting Time: **{best_hour}:00 hrs**")
 
-# -------------------------------------------------
-# Footer
-# -------------------------------------------------
+# =================================================
+# FOOTER
+# =================================================
 st.markdown("""
 <hr>
 <p style='text-align:center;color:#bbbbbb;'>
-Project 8 • Social Media Engagement Analytics • Built with ❤️ & Streamlit
+Project 8 • Social Media Engagement Analytics • Built with ❤️ using Streamlit
 </p>
 """, unsafe_allow_html=True)
